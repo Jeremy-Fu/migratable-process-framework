@@ -1,6 +1,10 @@
-import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 
 
 public class ProcessManager {
@@ -15,35 +19,50 @@ public class ProcessManager {
 		if (mode == "master") {
 			int port = Integer.parseInt(args[1]);
 			
-			boolean verbose = false;
 			if (args.length > 2) {
 				if (args[2] == "true") {
 					verbose = true;
 				}
 			}
-			
-			ServerSocket socket = null;
 			try {
-				socket = new ServerSocket(port);
-			} catch (IOException e) {
-				if (verbose) {
-					e.printStackTrace();
-					System.out.println("\tmain:\tError! Initialization of socket in master mode failed.");
-				}
-				return;
-			}
+				/* Setup server socket (waiting for upcoming slaves) */
+				ServerSocketChannel serverChannel = ServerSocketChannel.open();
+				ServerSocket serverSocket = serverChannel.socket();
+				serverSocket.bind(new InetSocketAddress(port));
+				
+				/* Setup multiplexed I/O (waiting for both upcoming slaves and stdin) */
+				Selector selector  = Selector.open();
+				
+				/* Register server channel with selector */
+				serverChannel.configureBlocking(false);
+				serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 			
-			while (true) {
-				Socket slaveSocket = null;
-				try {
-					slaveSocket = socket.accept();
-				} catch (IOException e) {
-					if (verbose) {
-						e.printStackTrace();
-						System.out.println("\tmain:\tException! Cannot accept a new slave.");
+			
+				while (true) {
+					int n = selector.select();
+					
+					if (n == 0) {
+						continue;
+					}
+					
+					Iterator it = selector.selectedKeys().iterator();
+					
+					while (it.hasNext()) {
+						SelectionKey key = (SelectionKey)it.next();
+						
+						if (key.isAcceptable()) {
+							SocketChannel socketChannel
+								= serverChannel.accept();
+							socketChannel.register(selector, SelectionKey.OP_READ);
+						}
+						
+						if (key.isReadable()) {
+							
+						}
 					}
 				}
-				
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 			
 		}

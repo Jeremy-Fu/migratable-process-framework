@@ -1,2 +1,5 @@
 #ignore bin
 /bin
+
+#ignore temporary file
+ProcessManager.java
