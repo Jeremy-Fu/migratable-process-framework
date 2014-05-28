@@ -2,4 +2,4 @@
 /bin
 
 #ignore temporary file
-ProcessManager.java
+/src/ProcessManager.java
