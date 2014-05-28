@@ -10,6 +10,7 @@ import java.util.Iterator;
 public class ProcessManager {
 	
 	public static void main (String[] args) {
+		boolean verbose;
 		if (args.length < 3) {
 			printUsage();
 			return;
