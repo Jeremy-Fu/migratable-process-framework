@@ -2,7 +2,7 @@ package test;
 
 import java.io.IOException;
 
-import TransactionalIO.TransactionalFileInputStream;
+import transactionalIO.TransactionalFileInputStream;
 
 public class TransactionalFileInputStreamTest {
 	public static void main (String[] args) {

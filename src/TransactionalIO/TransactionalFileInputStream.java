@@ -1,4 +1,4 @@
-package TransactionalIO;
+package transactionalIO;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +29,7 @@ public class TransactionalFileInputStream extends InputStream {
 		int aByte = file.read();
 		if (aByte != -1) {
 			this.counter++;
-		} 
+		}
 		file.close();
 		return aByte;
 	}

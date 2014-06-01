@@ -1,4 +1,4 @@
-package Process;
+package process;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -10,7 +10,7 @@ import java.util.Queue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import TransactionalIO.TransactionalFileOutputStream;
+import transactionalIO.TransactionalFileOutputStream;
 
 public class WebCrawler {
 	private final String USER_AGENT = "Mozilla/5.0";
