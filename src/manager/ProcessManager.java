@@ -8,7 +8,7 @@ public class ProcessManager {
 	
 	public static void main (String[] args) {
 //		boolean verbose;
-		if (args.length < 3) {
+		if (args.length < 2) {
 			printUsage();
 			return;
 		}
@@ -35,10 +35,34 @@ public class ProcessManager {
 				System.out.println("ProcessManager.main():\t Warning! Received an interuption.");
 				e.printStackTrace();
 			}
-		} else {
+		} else if (mode.equals("slave")){
 			Slave slave = null;
+			String remoteInetAddr = args[1];
+			int remotePort = 22045;
 			try {
-				slave = new Slave("127.0.0.1", 1234);
+				remotePort = Integer.parseInt(args[2]);
+			} catch (NumberFormatException e) {
+				System.out.println("ProcessManager.main():\tError! Unknown number format of remote port.");
+				return;
+			}
+			if (remotePort < 0 || remotePort > 65535) {
+				printPortRange();
+				return;
+			}
+			int listenPort = 0;
+			try {
+				listenPort = Integer.parseInt(args[3]);
+			} catch (NumberFormatException e) {
+				System.out.println("ProcessManager.main():\tError! Unknown number format of listen port.");
+				return;
+			}
+			if (listenPort < 0 || listenPort > 65535) {
+				printPortRange();
+				return;
+			}
+			
+			try {
+				slave = new Slave(remoteInetAddr, remotePort, listenPort);
 			} catch (UnknownHostException e) {
 				System.out.println("ProcessManager.main():\tError! Unknown host.");
 				return;
@@ -60,8 +84,12 @@ public class ProcessManager {
 	private static void printUsage() {
 		String info = "Initialization failed.\n";
 		info += "\tmaster mode: <mode> <listen port> <verbose>\n";
-		info += "\tslave mode: <mode> <slave port> <master inet address> <master port> <verbose>\n";
+		info += "\tslave mode: <mode> <remote inet address> <remote port> <listen port> <verbose>\n";
 		System.out.println(info);
+	}
+	
+	private static void printPortRange() {
+		System.out.println("ProcessManager.main():\tError! Port number should be 0 ~ 65535.");
 	}
 
 }
