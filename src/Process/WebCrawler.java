@@ -72,7 +72,7 @@ public class WebCrawler implements MigratableProcess{
 			}
 			
 			this.currentLine++;
-			finished = (this.urlQueue.isEmpty()) || (this.currentLine > this.maxLine);
+			finished = (this.urlQueue.isEmpty()) || (this.currentLine >= this.maxLine);
 			
 			try {
 				Thread.sleep(1000); //Sleep for 1 second.

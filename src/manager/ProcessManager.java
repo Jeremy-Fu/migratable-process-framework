@@ -20,8 +20,8 @@ public class ProcessManager {
 			try {
 				port = Integer.parseInt(args[1]);
 			} catch (NumberFormatException e) {
-				System.out.print("ProcessManager.main():\t Error! The second parameter should be an integer. ");
-				System.out.println("Master starts failed.");
+				System.err.print("ProcessManager.main():\t Error! The second parameter should be an integer. ");
+				System.out.println("ProcessManager.main():\tMaster starts failed.");
 				return;
 			}
 			
@@ -76,6 +76,7 @@ public class ProcessManager {
 				System.out.println("ProcessManager.main():\t Warning! Received an interuption.");
 				e.printStackTrace();
 			}
+			System.out.println("ProcessManager.main():\tSlave node shuts down");
 		}
 		return;
 		

@@ -53,9 +53,18 @@ public class Slave implements Runnable{
 			System.out.println("\tSlave.run():\tTry to register on slave.");
 			output.write("register\t" + this.listenPort + "\n");
 			output.flush();
-			String slaveName = input.readLine().split("\t")[1];
-			System.out.println("\tSlave.run():\tReceived new name:" + slaveName);
-			this.slaveName = slaveName;
+			String response = input.readLine();
+			String statusCode = response.split("\t")[0]; 
+			if (statusCode.equals("refresh")) {
+				System.out.println("\tSlave.run():\tRefresh on master node with name: " + response.split("\t")[1]);
+			} else if (statusCode.equals("succeed")) {
+				System.out.println("\tSlave.run():\tRegister on master node with name: " + response.split("\t")[1]);
+			} else {
+				System.out.println("\tSlave.run():\tInvalid argument.");
+				return;
+			}
+			
+			this.slaveName =response.split("\t")[1];
 			
 			input.close();
 			output.close();
@@ -73,6 +82,7 @@ public class Slave implements Runnable{
 		while (true) {
 			BufferedReader stdinInput = 
 					new BufferedReader(new InputStreamReader(System.in));
+			while (!mh.intialized);
 			System.out.print(">>");
 			String stdInput = null;
 			try{
@@ -124,6 +134,29 @@ public class Slave implements Runnable{
 				System.out.println("\tSlave.run():\tClosing slave server...");
 				mh.kill();
 				System.out.println("\tSlave.run():\tMigrationHandler terminated.");
+				try {
+					Socket commSocket = 
+						new Socket(this.remoteInetAddress, this.remotePort);
+					BufferedReader input = new BufferedReader(new InputStreamReader(commSocket.getInputStream()));
+					PrintWriter output = new PrintWriter(commSocket.getOutputStream(), true);
+					output.write("deregister\t" + this.slaveName + "\n");
+					output.flush();
+					String ack = input.readLine();
+
+					if (ack.equals("succeed")) {
+						String info = String.format("\tSlave.run():\tSlave node(name:%s) is deregistered on master.", this.slaveName);
+						System.out.println(info);
+					} else {
+						String info = String.format("\tSlave.run():\tUnknow error while deregisering slave node");
+						System.out.println(info);
+					}
+					output.close();
+					input.close();
+					commSocket.close();
+				} catch (IOException e) {
+					String info = String.format("\tSlave.run():\tUnknow error while deregisering slave node");
+					System.err.println(info);
+				}
 				
 				Set<String> procSet = this.processTable.keySet();
 				for (String procName : procSet) {
@@ -149,6 +182,14 @@ public class Slave implements Runnable{
 		String pid = args[1];
 		String dstNode = args[2];
 		Socket commSocket = null;
+		
+		MigratableProcess migratedProc = this.processTable.get(pid);
+		if (migratedProc == null) {
+			String info = String.format("\tSlave.run():\tThe PID (%s) requested to migrated is invalid", pid);
+			System.out.println(info);
+			System.out.println("\tSlave.run():\tUsage:migrated <PID> <Destination Node>");
+			return;
+		}
 		try {
 			commSocket = 
 				new Socket(this.remoteInetAddress, this.remotePort);
@@ -158,38 +199,40 @@ public class Slave implements Runnable{
 		if (commSocket == null) {
 			return;
 		}
-		ObjectInputStream socketInput = null;
-		try {
-			socketInput = new ObjectInputStream(commSocket.getInputStream());
-		} catch (IOException e) {
-			System.out.println("\tSlave.run():\tIOException occurs while instantiating ObjectInputStream of commSocket.");
-		}
+		
 		PrintWriter socketOutput = null;
 		try {
 			socketOutput = new PrintWriter(commSocket.getOutputStream(), true);
 		} catch (IOException e) {
 			System.out.println("\tSlave.run():\tIOException occurs while instantiating PrintWriter of commSocket.");
 		}
-		if (socketInput == null || socketOutput == null) {
+		if (socketOutput == null) {
 			return;
 		}
 		String query = String.format("query\t%s\n",dstNode);
 		socketOutput.write(query);
 		socketOutput.flush();
 		/* Receive response */
-		JSONObject node = null;
+		ObjectInputStream socketInput = null;
 		try {
-			node = (JSONObject)socketInput.readObject();
+			socketInput = new ObjectInputStream(commSocket.getInputStream());
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating ObjectInputStream of commSocket.");
+		}
+		SlaveInfo[] node = null;
+		try {
+			node = (SlaveInfo[])socketInput.readObject();
 		} catch (IOException e) {
 			System.out.println("\tSlave.run():\tIOException occurs while receiving messages of query");
 		} catch (ClassNotFoundException e) {
 			System.out.println("\tSlave.run():\tClassNotFoundException occrus while reconstructing JSONObject.");
 		}
+		 
 		
 		if (node == null) {
+			System.out.println("\tSlave.run():\tInvalid operation. The destination slave node is NOT found.");
 			return;
 		}
-		
 		
 		try {
 			socketInput.close();
@@ -202,23 +245,25 @@ public class Slave implements Runnable{
 				socketOutput.close();
 			}
 		}
+		if (node.length == 0) {
+			System.out.println("\tSlave.run():\tInvalid operation. The destination slave node is NOT found.");
+			return;
+		}
 		
-		JSONObject slaveInfo = (JSONObject)node.get(0);
-		InetAddress dstNodeIP = (InetAddress)slaveInfo.get("IP");
-		int dstNodePort = Integer.parseInt((String)slaveInfo.get("listenPort"));
+		SlaveInfo slaveInfo = node[0];
+		InetAddress dstNodeIP = slaveInfo.getIP();
+		int dstNodePort = slaveInfo.getListenPort();
 		
 		try {
 			commSocket = 
 				new Socket(dstNodeIP, dstNodePort);
 		} catch (IOException e) {
-			System.out.println("\tSlave.run():\tIOException occurs while instantiating Socket.");
+			System.err.println("\tSlave.run():\tIOException occurs while instantiating Socket.");
 		}
 		
 		ObjectOutputStream objOutput = null;
 		try {
 			objOutput = new ObjectOutputStream(commSocket.getOutputStream());
-		
-			MigratableProcess migratedProc = this.processTable.get(pid);
 			migratedProc.suspend();
 			objOutput.writeObject(migratedProc);
 			objOutput.close();
@@ -243,12 +288,7 @@ public class Slave implements Runnable{
 			return false;
 		}
 		
-		ObjectInputStream socketInput = null;
-		try {
-			socketInput = new ObjectInputStream(commSocket.getInputStream());
-		} catch (IOException e) {
-			System.out.println("\tSlave.run():\tIOException occurs while instantiating ObjectInputStream of commSocket.");
-		}
+		ObjectInputStream objSocketInput = null;
 		PrintWriter socketOutput = null;
 		try {
 			socketOutput = new PrintWriter(commSocket.getOutputStream(), true);
@@ -256,44 +296,48 @@ public class Slave implements Runnable{
 			System.out.println("\tSlave.run():\tIOException occurs while instantiating PrintWriter of commSocket.");
 		}
 		
-		if (socketInput == null || socketOutput == null) {
+		if (socketOutput == null) {
 			return false;
 		}
-		
 		socketOutput.write("query\tall\n");
 		socketOutput.flush();
 		/* Receive response */
-		JSONObject nodes = null;
+		SlaveInfo[] nodes = null;
+		
 		try {
-			nodes = (JSONObject)socketInput.readObject();
+			objSocketInput = new ObjectInputStream(commSocket.getInputStream());
+			nodes = (SlaveInfo[])objSocketInput.readObject();
 		} catch (IOException e) {
-			System.out.println("\tSlave.run():\tIOException occurs while receiving messages of query");
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating ObjectInputStream of commSocket.");
 		} catch (ClassNotFoundException e) {
 			System.out.println("\tSlave.run():\tClassNotFoundException occrus while reconstructing JSONObject.");
 		}
 		
 		if (nodes == null) {
+			System.out.println("Slave.run():\tNo Running slave nodes is found");
 			return false;
 		}
 		
-		if ((Integer)nodes.get("size") < 1) {
-			System.out.println("Slave.run():\tNo slaves found");
-		} else {
-			System.out.println("Slave.run():\tAll slaves:");
-			for (Integer i = 0; i < (Integer)nodes.get("size"); i++) {
-				System.out.println("\t\t\t" + nodes.get(i));
-			}
+		System.out.println("Slave.run():\tAll slaves:");
+		for (int i = 0; i < nodes.length; i++) {
+			System.out.println("\t\t\t" + nodes[i].getNodeName());
 		}
+		
 		try {
-			socketInput.close();
-			socketOutput.close();
-			commSocket.close();
+			if (objSocketInput != null) {
+				objSocketInput.close();
+			}
+			if (socketOutput != null) {
+				socketOutput.close();
+			}
+			if (commSocket != null) {
+				commSocket.close();
+			}
 		} catch (IOException e) {
 			System.out.println("\tSlave.run():\tIOException occurs while closing IO and socket.");
 		} finally {
 			if (socketOutput != null) {
 				socketOutput.close();
-				
 			}
 		}
 		return true;
@@ -303,11 +347,13 @@ public class Slave implements Runnable{
 		private int listenPort;
 		private volatile boolean running;
 		private volatile boolean suspending;
+		private volatile boolean intialized;
 		
 		public MigrationHandler(int port) {
 			this.listenPort  = port;
 			this.running = true;
 			this.suspending = false;
+			this.intialized = false;
 		}
 		
 		private void kill () {
@@ -336,6 +382,7 @@ public class Slave implements Runnable{
 			String info = String.format("\t\tMigrationHandler.run():\t%s is "
 					+ "listening at port %s for migration purpose.", slaveName, this.listenPort);
 			System.out.println(info);
+			this.intialized = true;
 			while (!this.suspending) {
 				//System.out.println("\t\tMigrationHandler.run():\tWait...");
 				Socket socket = null;
@@ -350,7 +397,7 @@ public class Slave implements Runnable{
 					continue;
 				}
 				
-				System.out.println("\t\tMigrationHandler.run():\tAccept a new connection");
+				//System.out.println("\t\tMigrationHandler.run():\tAccept a new connection");
 				BufferedReader input = null;
 				ObjectInputStream objInput = null;
 				PrintWriter output = null;
@@ -398,6 +445,7 @@ public class Slave implements Runnable{
 					continue;
 				}
 				String procName = "migrate-" + Slave.this.slaveName + "-" + Slave.this.processCounter;
+				Slave.this.processCounter++;
 				Thread newThread = new Thread(proc, procName);
 				newThread.start();
 				Slave.this.processTable.put(procName, proc);
