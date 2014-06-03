@@ -3,9 +3,10 @@ package transactionalIO;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.io.Serializable;
 
 
-public class TransactionalFileInputStream extends InputStream {
+public class TransactionalFileInputStream extends InputStream implements Serializable {
 	
 	private long counter = 0L;
 	private String filename = "";

@@ -4,15 +4,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.Hashtable;
 import java.util.Set;
-
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.json.simple.JSONObject;
 
@@ -23,7 +25,7 @@ public class Slave implements Runnable{
 	private int listenPort = 12345; 
 	private InetAddress remoteInetAddress = null;
 	private String slaveName = null;
-	private Hashtable<String, MigratableProcess> processTable = null;
+	private ConcurrentHashMap<String, MigratableProcess> processTable = null;
 	private long processCounter;
 	
 	public Slave(String dstIP, int remotePort, int listenPort) throws UnknownHostException {
@@ -31,7 +33,7 @@ public class Slave implements Runnable{
 		this.listenPort = listenPort;
 		this.remoteInetAddress = InetAddress.getByName(dstIP);
 		this.slaveName = "";
-		this.processTable = new Hashtable<String, MigratableProcess>();
+		this.processTable = new ConcurrentHashMap<String, MigratableProcess>();
 		processCounter = 0;
 	}
 	
@@ -63,6 +65,10 @@ public class Slave implements Runnable{
 			return;
 		}
 		
+		MigrationHandler mh = new MigrationHandler(this.listenPort);
+		Thread mhThread = new Thread(mh);
+		mhThread.start();
+		
 		/* Listen to users command and migration request */
 		while (true) {
 			BufferedReader stdinInput = 
@@ -90,6 +96,11 @@ public class Slave implements Runnable{
 				continue;
 			}
 			
+			if (comp[0].equals("migrate")) {
+				migrateProcess(comp);
+				continue;
+			}
+			
 			if (comp[0].equals("ps")) {
 				System.out.println("\tSlave.run():\tPID\tStatus");
 				Set<String> procSet = this.processTable.keySet();
@@ -111,6 +122,9 @@ public class Slave implements Runnable{
 			
 			if (comp[0].equals("quit")) {
 				System.out.println("\tSlave.run():\tClosing slave server...");
+				mh.kill();
+				System.out.println("\tSlave.run():\tMigrationHandler terminated.");
+				
 				Set<String> procSet = this.processTable.keySet();
 				for (String procName : procSet) {
 					MigratableProcess proc = this.processTable.get(procName);
@@ -125,6 +139,95 @@ public class Slave implements Runnable{
 				break;
 			}	
 		}	
+	}
+	
+	private void migrateProcess(String[] args) {
+		if (args.length != 3) {
+			System.out.println("\tSlave.run():\tMigration usage: migrate <PID> <Slave ID>");
+			return;
+		}
+		String pid = args[1];
+		String dstNode = args[2];
+		Socket commSocket = null;
+		try {
+			commSocket = 
+				new Socket(this.remoteInetAddress, this.remotePort);
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating Socket.");
+		}
+		if (commSocket == null) {
+			return;
+		}
+		ObjectInputStream socketInput = null;
+		try {
+			socketInput = new ObjectInputStream(commSocket.getInputStream());
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating ObjectInputStream of commSocket.");
+		}
+		PrintWriter socketOutput = null;
+		try {
+			socketOutput = new PrintWriter(commSocket.getOutputStream(), true);
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating PrintWriter of commSocket.");
+		}
+		if (socketInput == null || socketOutput == null) {
+			return;
+		}
+		String query = String.format("query\t%s\n",dstNode);
+		socketOutput.write(query);
+		socketOutput.flush();
+		/* Receive response */
+		JSONObject node = null;
+		try {
+			node = (JSONObject)socketInput.readObject();
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while receiving messages of query");
+		} catch (ClassNotFoundException e) {
+			System.out.println("\tSlave.run():\tClassNotFoundException occrus while reconstructing JSONObject.");
+		}
+		
+		if (node == null) {
+			return;
+		}
+		
+		
+		try {
+			socketInput.close();
+			socketOutput.close();
+			commSocket.close();
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while closing IO and socket.");
+		} finally {
+			if (socketOutput != null) {
+				socketOutput.close();
+			}
+		}
+		
+		JSONObject slaveInfo = (JSONObject)node.get(0);
+		InetAddress dstNodeIP = (InetAddress)slaveInfo.get("IP");
+		int dstNodePort = Integer.parseInt((String)slaveInfo.get("listenPort"));
+		
+		try {
+			commSocket = 
+				new Socket(dstNodeIP, dstNodePort);
+		} catch (IOException e) {
+			System.out.println("\tSlave.run():\tIOException occurs while instantiating Socket.");
+		}
+		
+		ObjectOutputStream objOutput = null;
+		try {
+			objOutput = new ObjectOutputStream(commSocket.getOutputStream());
+		
+			MigratableProcess migratedProc = this.processTable.get(pid);
+			migratedProc.suspend();
+			objOutput.writeObject(migratedProc);
+			objOutput.close();
+			this.processTable.remove(pid);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+				
+		return;
 	}
 	
 	private boolean nodesQueryHanlder(String[] args) {
@@ -156,15 +259,6 @@ public class Slave implements Runnable{
 		if (socketInput == null || socketOutput == null) {
 			return false;
 		}
-		
-		/* Send query request */
-//		if (args.length > 1) {
-//			socketOutput.write("query\t" + args[1] + "\n");
-//			socketOutput.flush();
-//		} else {
-//			socketOutput.write("query\tall\n");
-//			socketOutput.flush();
-//		}
 		
 		socketOutput.write("query\tall\n");
 		socketOutput.flush();
@@ -203,6 +297,130 @@ public class Slave implements Runnable{
 			}
 		}
 		return true;
+	}
+	
+	public class MigrationHandler implements Runnable {
+		private int listenPort;
+		private volatile boolean running;
+		private volatile boolean suspending;
+		
+		public MigrationHandler(int port) {
+			this.listenPort  = port;
+			this.running = true;
+			this.suspending = false;
+		}
+		
+		private void kill () {
+			this.suspending = true;
+			while (suspending && running) {
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+		@Override
+		public void run() {
+			ServerSocket listener = null;
+			try {
+				listener = new ServerSocket();
+				listener.bind(new InetSocketAddress(this.listenPort));
+				listener.setSoTimeout(5000);
+			} catch (IOException e) {
+				System.out.println("\t\tMigrationHandler.run():\tError! The port is currently used.");
+				this.running = false;
+				return;
+			}
+			String info = String.format("\t\tMigrationHandler.run():\t%s is "
+					+ "listening at port %s for migration purpose.", slaveName, this.listenPort);
+			System.out.println(info);
+			while (!this.suspending) {
+				//System.out.println("\t\tMigrationHandler.run():\tWait...");
+				Socket socket = null;
+				try {
+					socket = listener.accept();
+				} catch (IOException e) {
+					//System.out.println("\t\tMigrationHandler.run():\tIOException occurs while accpeting a migration.");
+					continue;
+				}
+				
+				if (socket == null) {
+					continue;
+				}
+				
+				System.out.println("\t\tMigrationHandler.run():\tAccept a new connection");
+				BufferedReader input = null;
+				ObjectInputStream objInput = null;
+				PrintWriter output = null;
+
+				try {
+//					input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+					output = new PrintWriter(socket.getOutputStream(), true);
+					objInput = new ObjectInputStream(socket.getInputStream());
+				} catch (IOException e) {
+					System.out.println("\t\tMigrationHandler.run():\tIOException happened in creating In/Output stream");
+					e.printStackTrace();
+					continue;
+				}
+				
+//				String cmd = null;
+//				try {
+//					cmd = input.readLine();
+//				} catch (IOException e) {
+//					System.out.println("\t\tMigrationHandler.run():\tIOException happened in reading from input stream");
+//					continue;
+//				}
+//				
+//				if (cmd == null) {
+//					System.out.println("\t\tMigrationHandler.run():\null is returned in reading from input stream");
+//					continue;
+//				}
+				
+//				if (cmd.equals("migrate")) {
+
+				MigratableProcess proc = null;
+//				if (objInput == null) {
+//					continue;
+//				}
+					
+				try {
+					proc = (MigratableProcess)objInput.readObject();
+				} catch (IOException e) {
+					System.out.println("\t\tMigrationHandler.run():\tIOException happened while reading process.");
+					continue;
+				} catch (ClassNotFoundException e) {
+					System.out.println("\t\tMigrationHandler.run():\tClassNotFoundException happened while reading process.");
+					continue;
+				}
+				if (proc == null) {
+					continue;
+				}
+				String procName = "migrate-" + Slave.this.slaveName + "-" + Slave.this.processCounter;
+				Thread newThread = new Thread(proc, procName);
+				newThread.start();
+				Slave.this.processTable.put(procName, proc);
+				
+				try {
+					socket.close();
+//					input.close();
+					output.close();
+					objInput.close();
+				} catch (IOException e) {
+					System.out.println("\t\tMigrationHandler.run():IOException happened while cleaning up.");
+				}
+			}
+			
+			try {
+				listener.close();
+			} catch (IOException e) {
+				System.out.println("\t\tMigrationHandler.run():IOException happend while closing listener socket.");
+			}
+			this.suspending = false;
+			this.running = false;
+		}
+		
 	}
 	
 	private void runProcess(String[] args) {

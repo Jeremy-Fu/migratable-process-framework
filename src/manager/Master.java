@@ -34,7 +34,7 @@ public class Master implements Runnable{
 	@Override
 	public void run() {
 			/* Setup server socket (waiting for upcoming slaves) */
-			ServerSocket listener;
+			ServerSocket listener = null;
 			try {
 				listener = new ServerSocket();
 				listener.bind(new InetSocketAddress(this.port));

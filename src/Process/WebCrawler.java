@@ -23,10 +23,11 @@ public class WebCrawler implements MigratableProcess{
 	private static String initURL;
 	private Queue<String> urlQueue;
 	private boolean verbose = false;
-	private boolean suspending = false;
-	private boolean finished = false;
-	private int maxLine = 30;
+	private volatile boolean suspending = false;
+	private volatile boolean finished = false;
+	private int maxLine;
 	TransactionalFileOutputStream output;
+	private int currentLine;
 	
 	public WebCrawler(String[] args) throws Exception {
 		if (args == null || args.length != 3) {
@@ -42,13 +43,12 @@ public class WebCrawler implements MigratableProcess{
 		} catch (NumberFormatException e) {
 			System.err.println("\t\tWebCrawler():\tInvalid number format of <max lines>.");
 		}
-
+		this.urlQueue.offer(new String(this.initURL));
 		this.verbose = false;
+		this.currentLine = 0;
 	}
 	
 	public void run() {
-		this.urlQueue.offer(new String(this.initURL));
-		int i = 0;
 		while (!finished && !suspending) {
 			String url = this.urlQueue.poll();
 			try {
@@ -71,8 +71,8 @@ public class WebCrawler implements MigratableProcess{
 					this.urlQueue.offer(ele);
 			}
 			
-			i++;
-			finished = (this.urlQueue.isEmpty()) || (i > this.maxLine);
+			this.currentLine++;
+			finished = (this.urlQueue.isEmpty()) || (this.currentLine > this.maxLine);
 			
 			try {
 				Thread.sleep(1000); //Sleep for 1 second.
@@ -186,11 +186,6 @@ public class WebCrawler implements MigratableProcess{
 		
 	}
 
-	@Override
-	public boolean getFinished() {
-		// TODO Auto-generated method stub
-		return false;
-	}
 	
 	@Override
 	public int getStatus() {
