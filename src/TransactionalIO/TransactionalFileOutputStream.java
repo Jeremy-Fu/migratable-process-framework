@@ -23,5 +23,16 @@ public class TransactionalFileOutputStream extends OutputStream {
 		counter++;
 		file.close();
 	}
+	
+	@Override
+	public void write(byte[] b) throws IOException {
+		RandomAccessFile file = new RandomAccessFile(this.filename, this.permission);
+		file.seek(this.counter);
+		for (int i = 0; i < b.length; i++) {
+			file.write(b[i]);
+		}
+		counter += b.length;
+		file.close();
+	}
 
 }
