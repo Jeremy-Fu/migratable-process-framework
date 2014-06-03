@@ -25,23 +25,30 @@ public class WebCrawler implements MigratableProcess{
 	private boolean verbose = false;
 	private boolean suspending = false;
 	private boolean finished = false;
+	private int maxLine = 30;
 	TransactionalFileOutputStream output;
 	
 	public WebCrawler(String[] args) throws Exception {
-		if (args == null || args.length != 2) {
-			System.out.println("usage:\tWebCrawler <init url> <output file>");
+		if (args == null || args.length != 3) {
+			System.out.println("usage:\tWebCrawler <init url> <output file> <max lines>");
 			throw new Exception("Invalid arguments");
 		}
 		
 		this.initURL = args[0];
 		this.urlQueue = new LinkedList<String>();
 		this.output = new TransactionalFileOutputStream(args[1], "rw");
+		try {
+			this.maxLine = Integer.parseInt(args[2]);
+		} catch (NumberFormatException e) {
+			System.err.println("\t\tWebCrawler():\tInvalid number format of <max lines>.");
+		}
+
 		this.verbose = false;
 	}
 	
 	public void run() {
 		this.urlQueue.offer(new String(this.initURL));
-		
+		int i = 0;
 		while (!finished && !suspending) {
 			String url = this.urlQueue.poll();
 			try {
@@ -64,8 +71,9 @@ public class WebCrawler implements MigratableProcess{
 					this.urlQueue.offer(ele);
 			}
 			
+			i++;
+			finished = (this.urlQueue.isEmpty()) || (i > this.maxLine);
 			
-			finished = this.urlQueue.isEmpty();
 			try {
 				Thread.sleep(1000); //Sleep for 1 second.
 			} catch (InterruptedException e) {
@@ -73,7 +81,6 @@ public class WebCrawler implements MigratableProcess{
 			}
 		}
 		
-		finished = this.urlQueue.isEmpty();
 		if (finished) {
 			try {
 				output.close();
@@ -168,7 +175,7 @@ public class WebCrawler implements MigratableProcess{
 	public void suspend() {
 		this.suspending = true;
 		int i = 0;
-		while (this.suspending) {
+		while (this.suspending && !this.finished) {
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
@@ -183,6 +190,17 @@ public class WebCrawler implements MigratableProcess{
 	public boolean getFinished() {
 		// TODO Auto-generated method stub
 		return false;
+	}
+	
+	@Override
+	public int getStatus() {
+		if (this.finished) {
+			return 0;
+		} else if (this.suspending) {
+			return -1;
+		} else {
+			return 1;
+		}
 	}
 }
 

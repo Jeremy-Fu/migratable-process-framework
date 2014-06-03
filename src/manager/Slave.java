@@ -13,7 +13,6 @@ import java.net.UnknownHostException;
 import java.util.Hashtable;
 import java.util.Set;
 
-import process.*;
 
 import org.json.simple.JSONObject;
 
@@ -89,6 +88,25 @@ public class Slave implements Runnable{
 			if (comp[0].equals("run")) {
 				runProcess(comp);
 				continue;
+			}
+			
+			if (comp[0].equals("ps")) {
+				System.out.println("\tSlave.run():\tPID\tStatus");
+				Set<String> procSet = this.processTable.keySet();
+				for (String procName : procSet) {
+					MigratableProcess proc = this.processTable.get(procName);
+					int procStatCode = proc.getStatus();
+					String procStat = null;
+					if (procStatCode == 0) {
+						procStat = "Finished";
+					} else if (procStatCode == -1){
+						procStat = "Suspending";
+					} else {
+						procStat = "Running";
+					}
+					String info = String.format("\t\t\t%s\t%s", procName, procStat);
+					System.out.println(info);
+				}
 			}
 			
 			if (comp[0].equals("quit")) {
@@ -228,7 +246,8 @@ public class Slave implements Runnable{
 			return;
 		}
 		
-		String processName = this.slaveName + this.processCounter;
+		String processName = this.slaveName + "-" + this.processCounter;
+		this.processCounter++;
 		this.processTable.put(processName, migratableProcess);
 		Thread newThread = new Thread(migratableProcess);
 		newThread.start();

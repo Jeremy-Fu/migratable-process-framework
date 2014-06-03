@@ -9,5 +9,7 @@ public interface MigratableProcess extends Runnable, Serializable {
 	String toString();
 
 	boolean getFinished();
+	
+	int getStatus();
 
 }
