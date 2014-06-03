@@ -31,7 +31,7 @@ public class WebCrawler implements MigratableProcess{
 	
 	public WebCrawler(String[] args) throws Exception {
 		if (args == null || args.length != 3) {
-			System.out.println("usage:\tWebCrawler <init url> <output file> <max lines>");
+			System.out.println("usage:\trun process.WebCrawler <init url> <output file> <max lines>");
 			throw new Exception("Invalid arguments");
 		}
 		
@@ -51,6 +51,11 @@ public class WebCrawler implements MigratableProcess{
 	public void run() {
 		while (!finished && !suspending) {
 			String url = this.urlQueue.poll();
+			try {
+				Thread.sleep(1000); //Sleep for 1 second.
+			} catch (InterruptedException e) {
+				System.out.println("\t\tWebCrawler.run():\tInterruptedException caught while thread is sleeping.");
+			}
 			try {
 				output.write((url + "\n").getBytes());
 			} catch (IOException e) {
@@ -73,12 +78,6 @@ public class WebCrawler implements MigratableProcess{
 			
 			this.currentLine++;
 			finished = (this.urlQueue.isEmpty()) || (this.currentLine >= this.maxLine);
-			
-			try {
-				Thread.sleep(1000); //Sleep for 1 second.
-			} catch (InterruptedException e) {
-				System.out.println("\t\tWebCrawler.run():\tInterruptedException caught while thread is sleeping.");
-			}
 		}
 		
 		if (finished) {
@@ -133,6 +132,7 @@ public class WebCrawler implements MigratableProcess{
 			        new InputStreamReader(con.getInputStream()));
 		} catch (IOException e) {
 			if (this.verbose) {
+				e.printStackTrace();
 				System.out.println("\t\tWebCrawler.sendGETRequest():\tIOException occured while instantiating BufferedReader.");
 			}
 			return null;
@@ -174,7 +174,6 @@ public class WebCrawler implements MigratableProcess{
 	@Override
 	public void suspend() {
 		this.suspending = true;
-		int i = 0;
 		while (this.suspending && !this.finished) {
 			try {
 				Thread.sleep(100);
@@ -182,8 +181,6 @@ public class WebCrawler implements MigratableProcess{
 				System.err.println("\t\tWebCrawler.suspend():\tInterruption is called ");
 			}
 		}
-		
-		
 	}
 
 	

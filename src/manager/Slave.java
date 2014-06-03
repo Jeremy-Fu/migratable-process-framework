@@ -264,7 +264,9 @@ public class Slave implements Runnable{
 		ObjectOutputStream objOutput = null;
 		try {
 			objOutput = new ObjectOutputStream(commSocket.getOutputStream());
+			System.out.println("DEBUG:START SUSPENDING");
 			migratedProc.suspend();
+			System.out.println("DEBUG:FINISH SUSPENDING");
 			objOutput.writeObject(migratedProc);
 			objOutput.close();
 			this.processTable.remove(pid);

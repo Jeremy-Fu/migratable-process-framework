@@ -34,5 +34,19 @@ public class TransactionalFileInputStream extends InputStream implements Seriali
 		file.close();
 		return aByte;
 	}
+	
+	@Override
+	public int read(byte[] b) throws IOException {
+		RandomAccessFile file = new RandomAccessFile(this.filename, this.permission);
+		file.seek(this.counter);
+		int rst = file.read(b);
+		if (rst == -1) {
+			return -1;
+		} else {
+			this.counter += rst;
+			file.close();
+			return rst;
+		} 
+	}
 
 }

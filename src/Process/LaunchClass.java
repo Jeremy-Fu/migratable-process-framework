@@ -3,27 +3,20 @@ package process;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
-public class FindClass {
+public class LaunchClass {
 	public static void main (String[] args) {
-		args = new String[4];
+		args = new String[5];
 		args[0] = "run";
-		args[1] = "process.WebCrawler";
-		args[2] = "http://www.cmu.edu";
-		args[3] = "webfile";
+		args[1] = "process.FileCompression";
+		args[2] = "compress.pdf";
+		args[3] = "compress.zip";
+		args[4] = "0";
 		
 		String[] constructorArgs = new String[args.length - 2];
 		for (int i = 0; i < constructorArgs.length; i++) {
 			constructorArgs[i] = args[i + 2];
 			String info = String.format("args[%d]:\t%s",i,constructorArgs[i]);
 			System.out.println(info);
-		}
-	
-		WebCrawler wc = null;
-		try {
-			wc = new WebCrawler(constructorArgs );
-		} catch (Exception e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
 		}
 		
 		MigratableProcess migratableProcess = null;

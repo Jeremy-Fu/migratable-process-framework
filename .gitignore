@@ -2,9 +2,4 @@
 /bin
 
 #ignore temporary file
-input_test.txt
-output_test.txt
-./src/ProcessManager.java
-webfile*
-args
-bugs
+/tmp
