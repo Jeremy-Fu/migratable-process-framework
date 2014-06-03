@@ -11,6 +11,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Hashtable;
+import java.util.Set;
+
 import process.*;
 
 import org.json.simple.JSONObject;
@@ -91,6 +93,12 @@ public class Slave implements Runnable{
 			
 			if (comp[0].equals("quit")) {
 				System.out.println("\tSlave.run():\tClosing slave server...");
+				Set<String> procSet = this.processTable.keySet();
+				for (String procName : procSet) {
+					MigratableProcess proc = this.processTable.get(procName);
+					proc.suspend();
+					System.out.println("\tSlave.run():\tTerminated process:" + procName);
+				}
 				try {
 					stdinInput.close();
 				} catch (IOException e) {

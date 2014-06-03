@@ -74,9 +74,7 @@ public class WebCrawler implements MigratableProcess{
 		}
 		
 		finished = this.urlQueue.isEmpty();
-		if (!finished) {
-			suspending = false;
-		} else {
+		if (finished) {
 			try {
 				output.close();
 			} catch (IOException e) {
@@ -85,6 +83,7 @@ public class WebCrawler implements MigratableProcess{
 				}
 			}
 		}
+		suspending  = false;
 		return;
 	}
 
@@ -167,7 +166,16 @@ public class WebCrawler implements MigratableProcess{
 
 	@Override
 	public void suspend() {
-		// TODO Auto-generated method stub
+		this.suspending = true;
+		int i = 0;
+		while (this.suspending) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				System.err.println("\t\tWebCrawler.suspend():\tInterruption is called ");
+			}
+		}
+		
 		
 	}
 
