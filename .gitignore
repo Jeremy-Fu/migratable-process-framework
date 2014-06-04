@@ -3,3 +3,9 @@
 
 #ignore temporary file
 /tmp
+
+#ignore report directory
+/report
+
+#ignore jar file
+*.jar

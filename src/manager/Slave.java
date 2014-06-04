@@ -112,7 +112,7 @@ public class Slave implements Runnable{
 			}
 			
 			if (comp[0].equals("ps")) {
-				System.out.println("\tSlave.run():\tPID\tStatus");
+				System.out.println("PID\t\t\t\tStatus");
 				Set<String> procSet = this.processTable.keySet();
 				for (String procName : procSet) {
 					MigratableProcess proc = this.processTable.get(procName);
@@ -125,9 +125,10 @@ public class Slave implements Runnable{
 					} else {
 						procStat = "Running";
 					}
-					String info = String.format("\t\t\t%s\t%s", procName, procStat);
+					String info = String.format("%s\t\t\t%s", procName, procStat);
 					System.out.println(info);
 				}
+				System.out.println();
 			}
 			
 			if (comp[0].equals("quit")) {
@@ -264,9 +265,7 @@ public class Slave implements Runnable{
 		ObjectOutputStream objOutput = null;
 		try {
 			objOutput = new ObjectOutputStream(commSocket.getOutputStream());
-			System.out.println("DEBUG:START SUSPENDING");
 			migratedProc.suspend();
-			System.out.println("DEBUG:FINISH SUSPENDING");
 			objOutput.writeObject(migratedProc);
 			objOutput.close();
 			this.processTable.remove(pid);
@@ -277,7 +276,7 @@ public class Slave implements Runnable{
 		return;
 	}
 	
-	private boolean nodesQueryHanlder(String[] args) {
+	private void nodesQueryHanlder(String[] args) {
 		Socket commSocket = null;
 		try {
 			commSocket = 
@@ -287,7 +286,7 @@ public class Slave implements Runnable{
 		}
 		
 		if (commSocket == null) {
-			return false;
+			return;
 		}
 		
 		ObjectInputStream objSocketInput = null;
@@ -299,7 +298,7 @@ public class Slave implements Runnable{
 		}
 		
 		if (socketOutput == null) {
-			return false;
+			return;
 		}
 		socketOutput.write("query\tall\n");
 		socketOutput.flush();
@@ -316,13 +315,17 @@ public class Slave implements Runnable{
 		}
 		
 		if (nodes == null) {
-			System.out.println("Slave.run():\tNo Running slave nodes is found");
-			return false;
+			System.out.println("Slave.run():\tNo available nodes found");
+			return;
 		}
 		
-		System.out.println("Slave.run():\tAll slaves:");
+		System.out.println("All slaves:");
 		for (int i = 0; i < nodes.length; i++) {
-			System.out.println("\t\t\t" + nodes[i].getNodeName());
+			if(nodes[i].getNodeName().equals(this.slaveName)) {
+				System.out.println("\t*" + nodes[i].getNodeName());
+			} else {
+				System.out.println("\t" + nodes[i].getNodeName());
+			}
 		}
 		
 		try {
@@ -342,7 +345,7 @@ public class Slave implements Runnable{
 				socketOutput.close();
 			}
 		}
-		return true;
+		return;
 	}
 	
 	public class MigrationHandler implements Runnable {
@@ -375,7 +378,7 @@ public class Slave implements Runnable{
 			try {
 				listener = new ServerSocket();
 				listener.bind(new InetSocketAddress(this.listenPort));
-				listener.setSoTimeout(5000);
+				listener.setSoTimeout(1000);
 			} catch (IOException e) {
 				System.out.println("\t\tMigrationHandler.run():\tError! The port is currently used.");
 				this.running = false;
@@ -386,12 +389,11 @@ public class Slave implements Runnable{
 			System.out.println(info);
 			this.intialized = true;
 			while (!this.suspending) {
-				//System.out.println("\t\tMigrationHandler.run():\tWait...");
 				Socket socket = null;
 				try {
 					socket = listener.accept();
 				} catch (IOException e) {
-					//System.out.println("\t\tMigrationHandler.run():\tIOException occurs while accpeting a migration.");
+					//accept() time out every 500ms if no upcoming traffic and raises IOException.
 					continue;
 				}
 				
@@ -400,7 +402,6 @@ public class Slave implements Runnable{
 				}
 				
 				//System.out.println("\t\tMigrationHandler.run():\tAccept a new connection");
-				BufferedReader input = null;
 				ObjectInputStream objInput = null;
 				PrintWriter output = null;
 
@@ -413,26 +414,8 @@ public class Slave implements Runnable{
 					e.printStackTrace();
 					continue;
 				}
-				
-//				String cmd = null;
-//				try {
-//					cmd = input.readLine();
-//				} catch (IOException e) {
-//					System.out.println("\t\tMigrationHandler.run():\tIOException happened in reading from input stream");
-//					continue;
-//				}
-//				
-//				if (cmd == null) {
-//					System.out.println("\t\tMigrationHandler.run():\null is returned in reading from input stream");
-//					continue;
-//				}
-				
-//				if (cmd.equals("migrate")) {
 
 				MigratableProcess proc = null;
-//				if (objInput == null) {
-//					continue;
-//				}
 					
 				try {
 					proc = (MigratableProcess)objInput.readObject();
@@ -454,7 +437,6 @@ public class Slave implements Runnable{
 				
 				try {
 					socket.close();
-//					input.close();
 					output.close();
 					objInput.close();
 				} catch (IOException e) {
@@ -523,5 +505,5 @@ public class Slave implements Runnable{
 
 }
 	
-/* Referecne */
+/* Reference */
 //[1].	http://tutorials.jenkov.com/java-reflection/constructors.html

@@ -24,7 +24,11 @@ public class ProcessManager {
 				System.out.println("ProcessManager.main():\tMaster starts failed.");
 				return;
 			}
-			
+			if (port < 1024 || port > 65535) {
+				printPortRange();
+				System.out.println("ProcessManager.main():\tMaster starts failed.");
+				return;
+			}
 			System.out.println("ProcessManager.main():\t Starting the master server...");
 			Master master = new Master(port);
 			Thread masterThread = new Thread(master);
@@ -45,7 +49,7 @@ public class ProcessManager {
 				System.out.println("ProcessManager.main():\tError! Unknown number format of remote port.");
 				return;
 			}
-			if (remotePort < 0 || remotePort > 65535) {
+			if (remotePort < 1024 || remotePort > 65535) {
 				printPortRange();
 				return;
 			}
@@ -76,7 +80,9 @@ public class ProcessManager {
 				System.out.println("ProcessManager.main():\t Warning! Received an interuption.");
 				e.printStackTrace();
 			}
-			System.out.println("ProcessManager.main():\tSlave node shuts down");
+			System.out.println("ProcessManager.main():\tSlave terminated.");
+		} else {
+			printUsage();
 		}
 		return;
 		
@@ -90,7 +96,7 @@ public class ProcessManager {
 	}
 	
 	private static void printPortRange() {
-		System.out.println("ProcessManager.main():\tError! Port number should be 0 ~ 65535.");
+		System.out.println("ProcessManager.main():\tError! Port number should be 1024 ~ 65535.");
 	}
 
 }

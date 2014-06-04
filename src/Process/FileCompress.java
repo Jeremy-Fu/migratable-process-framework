@@ -11,8 +11,8 @@ import transactionalIO.TransactionalFileInputStream;
 import transactionalIO.TransactionalFileOutputStream;
 
 public class FileCompress implements MigratableProcess{
-	private boolean suspending;
-	private boolean finished;
+	private volatile boolean suspending;
+	private volatile boolean finished;
 	private TransactionalFileInputStream input;
 	private TransactionalFileOutputStream output;
 	private String inputFileName;
@@ -24,37 +24,37 @@ public class FileCompress implements MigratableProcess{
 		File srcFile = new File(args[0]);
 		File dstFile = new File(args[1]);
 		if (!srcFile.exists()) {
-			System.out.println("\t\t\tFileCompression():\tusage:\trun process.FileCompression <path-to-src-file> <path-to-src-file>");
+			System.out.println("\t\t\tFileComress():\tusage:\trun process.FileComress <path-to-src-file> <path-to-src-file>");
 			throw new FileNotFoundException();
 		}
 		if (!srcFile.isFile()) {
-			System.out.println("\t\t\tFileCompression():\tInvalid arguments. Expect a srcfile instead of a directory.");
-			System.out.println("\t\t\tFileCompression():\tusage:\trun process.FileCompression <path-to-src-file> <path-to-src-file>");
+			System.out.println("\t\t\tFileComress():\tInvalid arguments. Expect a srcfile instead of a directory.");
+			System.out.println("\t\t\tFileComress():\tusage:\trun process.FileComress <path-to-src-file> <path-to-src-file>");
 			throw new FileNotFoundException();
 		}
 		if (!dstFile.exists()) {
 			if (!dstFile.createNewFile()) {
-				System.out.println("\t\t\tFileCompression():\tUnable to create a new dstfile:" + dstFile.getAbsolutePath());
+				System.out.println("\t\t\tFileComress():\tUnable to create a new dstfile:" + dstFile.getAbsolutePath());
 				throw new Exception();
 			}
 		}
 		if (!dstFile.isFile()) {
-			System.out.println("\t\t\tFileCompression():\tInvalid arguments. Expect a dstfile instead of a directory.");
-			System.out.println("\t\t\tFileCompression():\tusage:\trun process.FileCompression <path-to-src-file> <path-to-src-file>");
+			System.out.println("\t\t\tFileComress():\tInvalid arguments. Expect a dstfile instead of a directory.");
+			System.out.println("\t\t\tFileComress():\tusage:\trun process.FileComress <path-to-src-file> <path-to-src-file>");
 			throw new FileNotFoundException();
 		} else {
 			if (!dstFile.delete()) {
-				System.out.println("\t\t\tFileCompression():\tUnable to delete obselet dstfile:" + dstFile.getAbsolutePath());
+				System.out.println("\t\t\tFileComress():\tUnable to delete obselet dstfile:" + dstFile.getAbsolutePath());
 				throw new Exception();
 			} 
 			if (!dstFile.createNewFile()) {
-				System.out.println("\t\t\tFileCompression():\tUnable to create srcfile:" + dstFile.getAbsolutePath());
+				System.out.println("\t\t\tFileComress():\tUnable to create srcfile:" + dstFile.getAbsolutePath());
 				throw new Exception();
 			}
 		}
 		this.sleepSlot = Integer.parseInt(args[2]);
 		if (this.sleepSlot < 0) {
-			System.out.println("\t\t\tFileCompression():\tInvalid argument.Sleep slot should be non-negative.");
+			System.out.println("\t\t\tFileComress():\tInvalid argument.Sleep slot should be non-negative.");
 			throw new Exception();
 		}
 		this.input = new TransactionalFileInputStream(args[0],"rw");
@@ -67,8 +67,9 @@ public class FileCompress implements MigratableProcess{
 		try {
 			gzipOutputStream = new GZIPOutputStream(this.output, size);
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+			System.err.println("\t\t\tFileCompress:IOException occurred while instantiating the GZIPOutputStream.");
+			this.finished = true;
+			return;
 		}
 		int len;
 		byte[] buff = new byte[size];

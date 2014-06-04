@@ -32,7 +32,7 @@ public class WebCrawler implements MigratableProcess{
 	public WebCrawler(String[] args) throws Exception {
 		if (args == null || args.length != 3) {
 			System.out.println("usage:\trun process.WebCrawler <init url> <output file> <max lines>");
-			throw new Exception("Invalid arguments");
+			throw new Exception();
 		}
 		
 		this.initURL = args[0];
@@ -42,6 +42,7 @@ public class WebCrawler implements MigratableProcess{
 			this.maxLine = Integer.parseInt(args[2]);
 		} catch (NumberFormatException e) {
 			System.err.println("\t\tWebCrawler():\tInvalid number format of <max lines>.");
+			this.maxLine = 60;
 		}
 		this.urlQueue.offer(new String(this.initURL));
 		this.verbose = false;
