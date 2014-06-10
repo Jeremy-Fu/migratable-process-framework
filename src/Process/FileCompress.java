@@ -11,6 +11,8 @@ import transactionalIO.TransactionalFileInputStream;
 import transactionalIO.TransactionalFileOutputStream;
 
 public class FileCompress implements MigratableProcess{
+
+	private static final long serialVersionUID = 7687682556481100960L;
 	private volatile boolean suspending;
 	private volatile boolean finished;
 	private TransactionalFileInputStream input;

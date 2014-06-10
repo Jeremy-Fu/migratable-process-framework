@@ -21,7 +21,7 @@ import org.json.simple.JSONObject;
 import process.MigratableProcess;
 
 public class Slave implements Runnable{
-	private int remotePort = 20024; //port number ranges from 0 ~ 65535
+	private int remotePort = 20024; //port number ranges from 1024 ~ 65535
 	private int listenPort = 12345; 
 	private InetAddress remoteInetAddress = null;
 	private String slaveName = null;
@@ -128,7 +128,7 @@ public class Slave implements Runnable{
 					String info = String.format("%s\t\t\t%s", procName, procStat);
 					System.out.println(info);
 				}
-				System.out.println();
+				continue;
 			}
 			
 			if (comp[0].equals("quit")) {
@@ -171,7 +171,14 @@ public class Slave implements Runnable{
 					System.out.println("\tSlave.run():\tIOException occurs while Closing stdin input stream.");
 				}
 				break;
-			}	
+			}
+			
+			if (comp[0].equals("help")) {
+				printSlaveCommandUsage();
+				continue;
+			}
+			
+			System.out.println("No command found. For help, please type \"help\".");
 		}	
 	}
 	
@@ -501,6 +508,16 @@ public class Slave implements Runnable{
 		this.processTable.put(processName, migratableProcess);
 		Thread newThread = new Thread(migratableProcess);
 		newThread.start();
+	}
+	
+	private void printSlaveCommandUsage() {
+		System.out.println("Usage:");
+		System.out.println("[1]:\tquit");
+		System.out.println("[2]:\tps");
+		System.out.println("[3]:\tquery");
+		System.out.println("[4]:\trun <Class Name> <args>");
+		System.out.println("[5]:\tmigrate <PID> <Slave Node Name>");
+		
 	}
 
 }

@@ -6,6 +6,9 @@ import java.io.RandomAccessFile;
 import java.io.Serializable;
 
 public class TransactionalFileOutputStream extends OutputStream implements Serializable {
+
+	
+	private static final long serialVersionUID = 4502579085535264356L;
 	private String filename;
 	private long counter;
 	private String permission;

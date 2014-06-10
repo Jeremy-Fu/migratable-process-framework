@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 import transactionalIO.TransactionalFileOutputStream;
 
 public class WebCrawler implements MigratableProcess{
+
+	private static final long serialVersionUID = -8827017241918862536L;
 	private final String USER_AGENT = "Mozilla/5.0";
 	private final String HTTP_REGEX = "http://(\\w+\\.)+(\\w+)";
 	private final Pattern HTTP_PATTERN = Pattern.compile(HTTP_REGEX);

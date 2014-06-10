@@ -8,6 +8,8 @@ import java.io.Serializable;
 
 public class TransactionalFileInputStream extends InputStream implements Serializable {
 	
+	
+	private static final long serialVersionUID = -4758224813200032354L;
 	private long counter = 0L;
 	private String filename = "";
 	private String permission = "";
@@ -41,6 +43,7 @@ public class TransactionalFileInputStream extends InputStream implements Seriali
 		file.seek(this.counter);
 		int rst = file.read(b);
 		if (rst == -1) {
+			file.close();
 			return -1;
 		} else {
 			this.counter += rst;
